@@ -1,0 +1,28 @@
+{
+  "error": {
+    "error_code": 100,
+    "error_msg": "One of the parameters specified was missing or invalid: you should specify peer_id, user_id, domain, chat_id or user_ids param",
+    "request_params": [
+      {
+        "key": "v",
+        "value": "5.130"
+      },
+      {
+        "key": "method",
+        "value": "messages.send"
+      },
+      {
+        "key": "oauth",
+        "value": "1"
+      },
+      {
+        "key": "peer_id",
+        "value": "0"
+      },
+      {
+        "key": "random_id",
+        "value": "1298498081"
+      }
+    ]
+  }
+}
