@@ -2,12 +2,67 @@ package main
 
 import (
 	"fmt"
-	"github.com/CptIdea/go-vk-api-2"
+	"log"
+	"os"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/CptIdea/go-vk-api-2"
+	"github.com/joho/godotenv"
 )
 
-var GroupID = 202576242
+func init() {
+	logFile, err := os.OpenFile("notify.log", os.O_CREATE|os.O_RDWR, 0777)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//Clear logs every day
+	go func() {
+		tick := time.NewTicker(time.Hour * 24)
+		for {
+			<-tick.C
+			logFile.Truncate(0)
+		}
+	}()
+
+	logFile.Truncate(0)
+
+	log.SetOutput(logFile)
+
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("No .env file found")
+	}
+
+	var exist bool
+
+	token, exist = os.LookupEnv("VK_TOKEN")
+	if !exist {
+		log.Fatal(fmt.Errorf(".env VK_TOKEN not exist"))
+	}
+
+	version, exist = os.LookupEnv("VK_VERSION")
+	if !exist {
+		log.Fatal(fmt.Errorf(".env VK_VERSION not exist"))
+	}
+
+	rawGID, exist := os.LookupEnv("VK_GROUP")
+	if !exist {
+		log.Fatal(fmt.Errorf(".env VK_GROUP not exist"))
+	}
+
+	groupID, err = strconv.Atoi(rawGID)
+	if err != nil {
+		log.Fatal(fmt.Errorf("failed convert VK_GROUP"))
+	}
+}
+
+var (
+	token   = ""
+	groupID = 0
+	version = ""
+)
 
 type UserNotify struct {
 	UserID int            `json:"user_id"`
@@ -25,19 +80,21 @@ var Users = make(map[int]*UserNotify)
 
 var TimeLayout = "2 Jan 2006 15:04:05 -0700 MST"
 
-var bot = vk.NewSession("fdfb0bec49800b941936aaf417d48ae06d129dc539337a4dd13ddfa0a781e19e57b1ffcbfe963c81fc7bd", "5.130")
+var bot = vk.NewSession(token, version)
 
 var NewNoteKB = vk.GenerateKeyBoard("Новая мысль", false, false)
 
 func main() {
-	fmt.Println(time.Now().Format(TimeLayout))
+	log.Println(time.Now().Format(TimeLayout))
+
+	bot = vk.NewSession(token, version)
 
 	go Checker()
 	for {
 
-		updates, err := bot.UpdateCheck(GroupID)
+		updates, err := bot.UpdateCheck(groupID)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			continue
 		}
 		for _, U := range updates.Updates {
@@ -45,33 +102,33 @@ func main() {
 			case "Новая мысль":
 				_, err = bot.KeySet("setNote", "write", U.Object.MessageNew.FromId)
 				if err != nil {
-					fmt.Println()
+					log.Println()
 				}
 
 				_, err := bot.SendMessage(U.Object.MessageNew.FromId, "Какую мысль хочешь запомнить?")
 				if err != nil {
-					fmt.Println(err)
+					log.Println(err)
 				}
 			default:
 				value, err := bot.KeyGet("setNote", U.Object.MessageNew.FromId)
 				if err != nil {
-					fmt.Println(err)
+					log.Println(err)
 				}
 				switch value {
 				case "write":
 					_, err := bot.KeySet("currentNoteText", U.Object.MessageNew.Text, U.Object.MessageNew.FromId)
 					if err != nil {
-						fmt.Println(err)
+						log.Println(err)
 					}
 
 					_, err = bot.KeySet("setNote", "when", U.Object.MessageNew.FromId)
 					if err != nil {
-						fmt.Println()
+						log.Println()
 					}
 
 					_, err = bot.SendKeyboard(U.Object.MessageNew.FromId, vk.GenerateKeyBoard("!pКогда зайду;Через час,Завтра;Через минуту, Через пять минут", true, false), fmt.Sprintf("Когда тебе напомнить?\n\nФормат: %s\nСейчас: %s", TimeLayout, time.Now().Format(TimeLayout)))
 					if err != nil {
-						fmt.Println()
+						log.Println()
 					}
 
 				case "when":
@@ -92,22 +149,22 @@ func main() {
 							Trigger: "online",
 							When:    time.Now().Add(time.Minute * 10).Format(TimeLayout),
 						})
-						fmt.Println()
-						fmt.Println("==================================")
-						fmt.Printf("Создана мысль пользователем %d\n", U.Object.MessageNew.FromId)
-						fmt.Printf("\tТекст:%s\n", text)
-						fmt.Printf("\tВремя:%s\n", time.Now().Add(time.Minute*10).Format(TimeLayout))
-						fmt.Printf("\tТриггер:online\n")
+						log.Println()
+						log.Println("==================================")
+						log.Printf("Создана мысль пользователем %d\n", U.Object.MessageNew.FromId)
+						log.Printf("\tТекст:%s\n", text)
+						log.Printf("\tВремя:%s\n", time.Now().Add(time.Minute*10).Format(TimeLayout))
+						log.Printf("\tТриггер:online\n")
 						Users[U.Object.MessageNew.FromId].Unlock()
 
 						_, err = bot.KeySet("setNote", "wait", U.Object.MessageNew.FromId)
 						if err != nil {
-							fmt.Println()
+							log.Println()
 						}
 
 						_, err := bot.SendMessage(U.Object.MessageNew.FromId, "Отлично! Жду твоего возвращения!")
 						if err != nil {
-							fmt.Println(err)
+							log.Println(err)
 						}
 					case "Через час":
 						U.Object.MessageNew.Text = time.Now().Add(time.Hour).Format(TimeLayout)
@@ -127,23 +184,23 @@ func main() {
 
 					case "Через пять минут":
 						if U.Object.MessageNew.Text == "Через пять минут" {
-							U.Object.MessageNew.Text = time.Now().Add(time.Minute*5).Format(TimeLayout)
+							U.Object.MessageNew.Text = time.Now().Add(time.Minute * 5).Format(TimeLayout)
 						}
 						fallthrough
 
 					default:
 						_, err := bot.KeySet("currentNoteTime", U.Object.MessageNew.Text, U.Object.MessageNew.FromId)
 						if err != nil {
-							fmt.Println(err)
+							log.Println(err)
 						}
 						_, err = bot.KeySet("setNote", "online", U.Object.MessageNew.FromId)
 						if err != nil {
-							fmt.Println()
+							log.Println()
 						}
 
 						_, err = bot.SendKeyboard(U.Object.MessageNew.FromId, vk.GenerateKeyBoard("!gДа,!rНет", true, false), "Ждать когда ты зайдешь?")
 						if err != nil {
-							fmt.Println()
+							log.Println()
 						}
 					}
 				case "online":
@@ -159,22 +216,22 @@ func main() {
 						Trigger: trigger,
 						When:    time,
 					})
-					fmt.Println()
-					fmt.Println("==================================")
-					fmt.Printf("Создана мысль пользователем %d\n", U.Object.MessageNew.FromId)
-					fmt.Printf("\tТекст:%s\n", text)
-					fmt.Printf("\tВремя:%s\n", time)
-					fmt.Printf("\tТриггер:%s\n", trigger)
+					log.Println()
+					log.Println("==================================")
+					log.Printf("Создана мысль пользователем %d\n", U.Object.MessageNew.FromId)
+					log.Printf("\tТекст:%s\n", text)
+					log.Printf("\tВремя:%s\n", time)
+					log.Printf("\tТриггер:%s\n", trigger)
 					Users[U.Object.MessageNew.FromId].Unlock()
 
 					_, err = bot.KeySet("setNote", "wait", U.Object.MessageNew.FromId)
 					if err != nil {
-						fmt.Println()
+						log.Println()
 					}
 
 					_, err := bot.SendMessage(U.Object.MessageNew.FromId, "Отлично! Скоро напомню тебе!")
 					if err != nil {
-						fmt.Println(err)
+						log.Println(err)
 					}
 				}
 			}
@@ -187,27 +244,27 @@ func Checker() {
 	i := 0
 	for {
 		i++
-		fmt.Println()
-		fmt.Println("==================================")
-		fmt.Println("Проверка №", i)
-		fmt.Println("Время:", time.Now().Format(TimeLayout))
+		log.Println()
+		log.Println("==================================")
+		log.Println("Проверка №", i)
+		log.Println("Время:", time.Now().Format(TimeLayout))
 		for i, user := range Users {
 			user.Lock()
-			fmt.Println("+++++")
-			fmt.Printf("User #%d\n", i)
-			fmt.Printf("Notes:%d\n", len(user.Notes))
+			log.Println("+++++")
+			log.Printf("User #%d\n", i)
+			log.Printf("Notes:%d\n", len(user.Notes))
 			var toDel []string
 			for i, note := range user.Notes {
-				fmt.Printf("\tNote #%d\n", i)
-				fmt.Printf("\t\tTrigger:%s\n", note.Trigger)
-				fmt.Printf("\t\tText:%s\n", note.Text)
-				fmt.Printf("\t\tWhen:%s\n", note.When)
+				log.Printf("\tNote #%d\n", i)
+				log.Printf("\t\tTrigger:%s\n", note.Trigger)
+				log.Printf("\t\tText:%s\n", note.Text)
+				log.Printf("\t\tWhen:%s\n", note.When)
 				if note.When == "" || note.Trigger == "" {
 					continue
 				}
 				noteTime, err := time.Parse(TimeLayout, note.When)
 				if err != nil {
-					fmt.Printf("\t\terror(parse time):%s", err.Error())
+					log.Printf("\t\terror(parse time):%s", err.Error())
 					toDel = append(toDel, note.When)
 					continue
 				}
@@ -217,7 +274,7 @@ func Checker() {
 					case "online":
 						info, err := bot.GetUsersInfo([]int{user.UserID}, "online")
 						if err != nil {
-							fmt.Printf("\t\terror(check online):%s", err.Error())
+							log.Printf("\t\terror(check online):%s", err.Error())
 							continue
 						}
 						if info[0].Online == 1 {
@@ -225,9 +282,9 @@ func Checker() {
 							_, err = bot.SendMessage(user.UserID, note.Text)
 							action = "send notification"
 							if err != nil {
-								fmt.Printf("\t\terror(send):%s", err.Error())
+								log.Printf("\t\terror(send):%s", err.Error())
 							}
-						}else {
+						} else {
 							action = "wait online"
 						}
 					default:
@@ -235,11 +292,11 @@ func Checker() {
 						_, err = bot.SendMessage(user.UserID, note.Text)
 						action = "send notification"
 						if err != nil {
-							fmt.Printf("\t\terror(send):%s", err.Error())
+							log.Printf("\t\terror(send):%s", err.Error())
 						}
 					}
 				}
-				fmt.Printf("\t\tAction:%s\n", action)
+				log.Printf("\t\tAction:%s\n", action)
 			}
 
 			for _, s := range toDel {
