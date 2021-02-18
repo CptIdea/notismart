@@ -99,6 +99,11 @@ func main() {
 		}
 		for _, U := range updates.Updates {
 			switch U.Object.MessageNew.Text {
+			case "Дай время":
+				_, err := bot.SendMessage(U.Object.MessageNew.FromId, time.Now().Format(TimeLayout))
+				if err != nil {
+					log.Println(err)
+				}
 			case "Новая мысль":
 				_, err = bot.KeySet("setNote", "write", U.Object.MessageNew.FromId)
 				if err != nil {
@@ -126,7 +131,7 @@ func main() {
 						log.Println()
 					}
 
-					_, err = bot.SendKeyboard(U.Object.MessageNew.FromId, vk.GenerateKeyBoard("!pКогда зайду;Через час,Завтра;Через минуту, Через пять минут", true, false), fmt.Sprintf("Когда тебе напомнить?\n\nФормат: %s\nСейчас: %s", TimeLayout, time.Now().Format(TimeLayout)))
+					_, err = bot.SendKeyboard(U.Object.MessageNew.FromId, vk.GenerateKeyBoard("!pКогда зайду;Через час,Завтра;Через минуту, Через пять минут;!pДай время", true, false), fmt.Sprintf("Когда тебе напомнить?\n\nФормат: %s\nСейчас: %s", TimeLayout, time.Now().Format(TimeLayout)))
 					if err != nil {
 						log.Println()
 					}
@@ -314,3 +319,15 @@ func Checker() {
 		time.Sleep(time.Minute / 2)
 	}
 }
+
+//SUPER POWER CODE COMMENT!!!!
+//WOW
+//WOW
+//WOW
+//BOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+//M
+//
+//
+//
+//
+//
