@@ -99,6 +99,11 @@ func main() {
 		}
 		for _, U := range updates.Updates {
 			switch U.Object.MessageNew.Text {
+			case "Начать":
+				_, err := bot.SendKeyboard(U.Object.MessageNew.FromId, NewNoteKB, "Привет! Напиши мне \"Новая мысль\" чтобы записать что-нибудь")
+				if err != nil {
+					log.Println(err)
+				}
 			case "Дай время":
 				_, err := bot.SendMessage(U.Object.MessageNew.FromId, time.Now().Format(TimeLayout))
 				if err != nil {
