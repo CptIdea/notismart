@@ -1,0 +1,3 @@
+# notismart
+
+VK bot notificator
